@@ -28,16 +28,12 @@ namespace CustomerModuleAPI.Models
             modelBuilder.Entity<CustomerInfo>(entity =>
             {
                 entity.ToTable("Customer_Info");
-
-                entity.Property(e => e.Id).HasColumnName("ID");
+                entity.Property(e => e.FirstName).HasMaxLength(50);
 
                 entity.Property(e => e.EmailID).HasMaxLength(50);
 
-                entity.Property(e => e.MobileNo1).HasMaxLength(50);
+                entity.Property(e => e.MobileNo).HasMaxLength(50);
 
-                entity.Property(e => e.MobileNo2).HasMaxLength(50);
-
-                entity.Property(e => e.Name).HasMaxLength(50);
             });
 
             OnModelCreatingPartial(modelBuilder);

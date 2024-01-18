@@ -9,11 +9,19 @@ using CustomerModuleAPI.Models;
 using Microsoft.Data.SqlClient;
 using System.Data;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.AspNetCore.Authorization;
+using System.Security.Claims;
+using System.IdentityModel.Tokens.Jwt;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
+using NuGet.Common;
+
 
 namespace CustomerModuleAPI.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class CustomerInfoesController : ControllerBase
     {
         private readonly IConfiguration _iconfiguration;
@@ -25,35 +33,41 @@ namespace CustomerModuleAPI.Controllers
         }
 
 
-        [HttpGet("GetByID")]
-        public async Task<ActionResult<IEnumerable<CustomerInfo>>> GetByID(Int64 ID)
-        {
 
-            try
-            {
-                var entities = await _context.CustomerInfos.Where(c => c.Id == ID).ToListAsync();
+        //[HttpGet("GetByEmailID")]
+        //public async Task<ActionResult<IEnumerable<CustomerInfo>>> GetByEmailID(string EmailID)
+        //{
+
+        //    try
+        //    {
+        //        var entities = await _context.CustomerInfos.Where(c => c.EmailID == EmailID).ToListAsync();
                 
-                return Ok(entities);
-            }
-            catch (Exception ex)
-            {
-                // Log the exception or handle it according to your requirements
-                return StatusCode(500, "Internal server error");
-            }
+        //        return Ok(entities);
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        // Log the exception or handle it according to your requirements
+        //        return StatusCode(500, "Internal server error");
+        //    }
 
 
 
-        }
+        //}
 
-        [HttpGet]
-        public async Task<ActionResult<IEnumerable<CustomerInfo>>> GetAllRecord( )
+        [HttpGet("ViewListByEmailID") ]
+        public async Task<ActionResult<IEnumerable<CustomerInfo>>> GetAllRecord(string EmailID)
         {
 
             try
             {
-                var entities = await _context.CustomerInfos.ToListAsync();
+                if (EmailID != null)
+                {
+                    var entities = await _context.CustomerInfos.ToListAsync();
+                    return Ok(entities);
+                }
 
-                return Ok(entities);
+                return Ok();
+
             }
             catch (Exception ex)
             {
@@ -71,6 +85,13 @@ namespace CustomerModuleAPI.Controllers
 
             try
             {
+                if (!ModelState.IsValid)
+                {
+                    var errors = ModelState.Values.SelectMany(v => v.Errors.Select(e => e.ErrorMessage));
+                    return BadRequest(ModelState);
+
+                }
+
                 if (_context.CustomerInfos == null)
                 {
                     return Problem("Entity set 'CustomerModuleContext.CustomerInfos'  is null.");
@@ -78,7 +99,8 @@ namespace CustomerModuleAPI.Controllers
 
                     _context.CustomerInfos.Add(customer);
                 await _context.SaveChangesAsync();
-                return CreatedAtAction(nameof(GetByID), new { ID = customer.Id }, customer);
+                // return CreatedAtAction(nameof(GetByEmailID), new { EmailID = customer.EmailID }, customer);
+                return Ok("Success");
             }
             catch (Exception ex)
             {
@@ -89,7 +111,7 @@ namespace CustomerModuleAPI.Controllers
 
         //DELETE: api/CustomerInfoes/5
         [HttpDelete]
-        public async Task<IActionResult> DeleteCustomerInfo(Int64 id)
+        public async Task<IActionResult> DeleteCustomerInfo(Int64 ID)
         {
             try
             {
@@ -97,7 +119,7 @@ namespace CustomerModuleAPI.Controllers
                 {
                     return NotFound();
                 }
-                var customerInfo = await _context.CustomerInfos.FindAsync(id);
+                var customerInfo = await _context.CustomerInfos.FindAsync(ID);
                 if (customerInfo == null)
                 {
                     return NotFound();
@@ -116,23 +138,22 @@ namespace CustomerModuleAPI.Controllers
             }
         }
 
-        [HttpPut("ID")]
-        public async Task<bool> UpdateCustomer(int ID, string Name,string Address, string MobileNo1, string MobileNo2, string EmailID)
+        [HttpPut("UpdateCustomerWithID")]
+        public async Task<bool> UpdateCustomer(Int64 ID, [FromBody] CustomerInfo C)
         {
             try
             {
                 // Retrieve the customer by its ID
-                var customer = await _context.CustomerInfos.FirstOrDefaultAsync(c => c.Id == ID);
+                var customer = await _context.CustomerInfos.FirstOrDefaultAsync(c => c.ID == ID);
+
 
                 if (customer != null)
                 {
                     // Modify the customer properties
-                    customer.Id = ID;
-                    customer.Name = Name;
-                    customer.Address = Address;
-                    customer.MobileNo1 = MobileNo1;
-                    customer.MobileNo2 = MobileNo2;
-                    customer.EmailID = EmailID;
+                    customer.FirstName = C.FirstName;
+                    customer.EmailID = C.EmailID;
+                    customer.MobileNo = C.MobileNo;
+
 
                     // Update the entity in the DbContext
                     _context.CustomerInfos.Update(customer);
@@ -149,6 +170,8 @@ namespace CustomerModuleAPI.Controllers
                 // Handle exception, log error, or return appropriate response
                 return false; // Update failed
             }
+
+
         }
     }
 }
