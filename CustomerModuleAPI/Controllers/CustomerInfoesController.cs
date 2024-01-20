@@ -34,39 +34,30 @@ namespace CustomerModuleAPI.Controllers
 
 
 
-        //[HttpGet("GetByEmailID")]
-        //public async Task<ActionResult<IEnumerable<CustomerInfo>>> GetByEmailID(string EmailID)
-        //{
-
-        //    try
-        //    {
-        //        var entities = await _context.CustomerInfos.Where(c => c.EmailID == EmailID).ToListAsync();
-                
-        //        return Ok(entities);
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        // Log the exception or handle it according to your requirements
-        //        return StatusCode(500, "Internal server error");
-        //    }
-
-
-
-        //}
-
-        [HttpGet("ViewListByEmailID") ]
+        [HttpGet]
         public async Task<ActionResult<IEnumerable<CustomerInfo>>> GetAllRecord(string EmailID)
         {
 
             try
             {
-                if (EmailID != null)
-                {
-                    var entities = await _context.CustomerInfos.ToListAsync();
-                    return Ok(entities);
-                }
 
-                return Ok();
+                var CustomerRecordList = await _context.CustomerInfos.ToListAsync();
+
+                CustomerInfo obj = new CustomerInfo();
+
+                // Assuming EmailID is a parameter or variable
+                var particularE = CustomerRecordList.FirstOrDefault(c => c.EmailID == EmailID);
+
+                if (particularE != null)
+                {
+                    // Return the specific record
+                    return Ok(particularE);
+                }
+                else
+                {
+                    // Return the entire list
+                    return Ok(CustomerRecordList);
+                }
 
             }
             catch (Exception ex)
@@ -85,6 +76,17 @@ namespace CustomerModuleAPI.Controllers
 
             try
             {
+
+                // Check if the provided EmailID already exists in the database
+                bool emailExists = await _context.CustomerInfos.AnyAsync(c => c.EmailID == customer.EmailID);
+
+                if (emailExists)
+                {
+                    // Return a conflict status indicating that the email already exists
+                    return Conflict("Email ID already exists");
+                }
+
+
                 if (!ModelState.IsValid)
                 {
                     var errors = ModelState.Values.SelectMany(v => v.Errors.Select(e => e.ErrorMessage));
@@ -100,7 +102,7 @@ namespace CustomerModuleAPI.Controllers
                     _context.CustomerInfos.Add(customer);
                 await _context.SaveChangesAsync();
                 // return CreatedAtAction(nameof(GetByEmailID), new { EmailID = customer.EmailID }, customer);
-                return Ok("Success");
+                return Ok("Record Save Succesfully");
             }
             catch (Exception ex)
             {
@@ -138,40 +140,52 @@ namespace CustomerModuleAPI.Controllers
             }
         }
 
-        [HttpPut("UpdateCustomerWithID")]
-        public async Task<bool> UpdateCustomer(Int64 ID, [FromBody] CustomerInfo C)
+        [HttpPut]
+
+        public async Task<IActionResult> UpdateCustomer(Int64 ID, [FromBody] CustomerInfo updatedCustomer)
         {
             try
             {
                 // Retrieve the customer by its ID
-                var customer = await _context.CustomerInfos.FirstOrDefaultAsync(c => c.ID == ID);
+                var existingCustomer = await _context.CustomerInfos.FindAsync(ID);
 
-
-                if (customer != null)
+                if (existingCustomer == null)
                 {
-                    // Modify the customer properties
-                    customer.FirstName = C.FirstName;
-                    customer.EmailID = C.EmailID;
-                    customer.MobileNo = C.MobileNo;
-
-
-                    // Update the entity in the DbContext
-                    _context.CustomerInfos.Update(customer);
-
-                    // Save changes to the database
-                    await _context.SaveChangesAsync();
-                    return true; // Update successful
+                    // If the customer is not found, return a not found status
+                    return NotFound("Customer not found");
                 }
 
-                return false; // Customer not found
+                // Check for duplicate EmailID excluding the current record being updated
+                bool emailExists = await _context.CustomerInfos
+                    .AnyAsync(c => c.EmailID == updatedCustomer.EmailID && c.ID != ID);
+
+                if (emailExists)
+                {
+                    // Return a conflict status indicating that the email already exists
+                    return Conflict("Email ID already exists");
+                }
+
+                // Update the customer properties
+                existingCustomer.FirstName = updatedCustomer.FirstName;
+                existingCustomer.EmailID = updatedCustomer.EmailID;
+                existingCustomer.MobileNo = updatedCustomer.MobileNo;
+
+                // Apply any other necessary updates
+
+                // Update the entity in the DbContext
+                _context.CustomerInfos.Update(existingCustomer);
+
+                // Save changes to the database
+                await _context.SaveChangesAsync();
+
+                return Ok(existingCustomer); // Return the updated customer
             }
             catch (Exception ex)
             {
-                // Handle exception, log error, or return appropriate response
-                return false; // Update failed
+                // Handle other exceptions, log error, or return appropriate response
+                return StatusCode(500, "Internal Server Error");
             }
-
-
         }
+
     }
 }
